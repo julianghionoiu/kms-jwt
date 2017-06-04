@@ -6,3 +6,15 @@
 ## Usage
 
 TODO
+
+
+## Development
+
+Might need Install Java Cryptography Extension?
+https://cwiki.apache.org/confluence/display/STONEHENGE/Installing+Java+Cryptography+Extension+%28JCE%29+Unlimited+Strength+Jurisdiction+Policy+Files+6
+
+
+### Problems and solutions
+
+On MAC, if Encoder spends around 5 seconds initialising, have a look at this:
+https://stackoverflow.com/questions/25321187/java-mac-getinstance-for-hmacsha1-slow
