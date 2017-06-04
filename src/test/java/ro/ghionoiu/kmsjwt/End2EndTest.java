@@ -4,14 +4,15 @@ import com.amazonaws.services.kms.AWSKMS;
 import com.amazonaws.services.kms.AWSKMSClientBuilder;
 import io.jsonwebtoken.Claims;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.SystemOutRule;
 import ro.ghionoiu.kmsjwt.key.KMSDecrypt;
 import ro.ghionoiu.kmsjwt.key.KMSEncrypt;
 import ro.ghionoiu.kmsjwt.token.JWTDecoder;
 import ro.ghionoiu.kmsjwt.token.JWTEncoder;
 
-import java.util.Collections;
-import java.util.Optional;
+import java.util.*;
 
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
@@ -25,6 +26,10 @@ public class End2EndTest {
 
     private static AWSKMS KMS_CLIENT;
 
+    @Rule
+    public final SystemOutRule systemOutRule = new SystemOutRule().enableLog();
+
+
     @BeforeClass
     public static void setUp() throws Exception {
         KMS_CLIENT = AWSKMSClientBuilder.standard()
@@ -34,15 +39,27 @@ public class End2EndTest {
 
     @Test
     public void sign_token_with_KMS_and_verify() throws Exception {
-        KMSEncrypt kmsEncrypt = new KMSEncrypt(KMS_CLIENT, TEST_AWS_KEY_ARN);
+        String[] params = {
+                "--region", TEST_AWS_REGION,
+                "--key", TEST_AWS_KEY_ARN,
+                "--username", "userXYZ",
+                "--journey", "SUM,UPR",
+        };
+        GenerateTokenApp.main(params);
+        String jwtToken = getTokenFromStdout();
+        System.out.println("jwt: "+jwtToken);
+
         KMSDecrypt kmsDecrypt = new KMSDecrypt(KMS_CLIENT, Collections.singleton(TEST_AWS_KEY_ARN));
+        Claims claims = new JWTDecoder(kmsDecrypt).decodeAndVerify(jwtToken);
+        assertThat(claims.get("usr"), is("userXYZ"));
+    }
 
-        String jwt = JWTEncoder.builder(kmsEncrypt)
-                .claim("usr", "friendly_name")
-                .compact();
-        System.out.println("jwt: "+jwt);
-
-        Claims claims = new JWTDecoder(kmsDecrypt).decodeAndVerify(jwt);
-        assertThat(claims.get("usr"), is("friendly_name"));
+    private String getTokenFromStdout() {
+        String log = systemOutRule.getLogWithNormalizedLineSeparator();
+        String jwtTokenLine = Arrays.stream(log.split("\n"))
+                .filter(s -> s.contains("JWT_TOKEN"))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Token not found"));
+        return jwtTokenLine.split("=")[1].trim();
     }
 }

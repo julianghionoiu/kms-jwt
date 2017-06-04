@@ -55,6 +55,7 @@ dependencies {
     testCompile 'org.hamcrest:hamcrest-library:1.3'
     testCompile 'commons-io:commons-io:2.5'
     testCompile 'net.trajano.commons:commons-testing:1.0.1'
+    testCompile 'com.github.stefanbirkner:system-rules:1.16.1'
     testCompileOnly 'org.projectlombok:lombok:1.16.16'
 }
 

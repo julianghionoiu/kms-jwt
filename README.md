@@ -23,7 +23,7 @@ More info about KMS: https://aws.amazon.com/documentation/kms/
 
 ### Add as Maven dependency
 
-Add a dependency to `tdl:kms-jwt` in `compile` scope. See `bintray` shield for latest release number.
+Add a dependency to `ro.ghionoiu:kms-jwt` in `compile` scope. See `bintray` shield for latest release number.
 ```xml
 <dependency>
   <groupId>ro.ghionoiu</groupId>

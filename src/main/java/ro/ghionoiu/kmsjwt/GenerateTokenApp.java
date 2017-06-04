@@ -30,8 +30,8 @@ public class GenerateTokenApp {
         new JCommander(main, args);
 
         String jwt = main.generateJWT();
-        System.out.println("~~~~~~~~~~~~ JWT ~~~~~~~~~~~~~");
-        System.out.println(jwt);
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~");
+        System.out.println("JWT_TOKEN="+jwt);
     }
 
     private String generateJWT() throws KeyOperationException {
