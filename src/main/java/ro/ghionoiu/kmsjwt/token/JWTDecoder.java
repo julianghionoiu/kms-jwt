@@ -2,6 +2,7 @@ package ro.ghionoiu.kmsjwt.token;
 
 import io.jsonwebtoken.*;
 import ro.ghionoiu.kmsjwt.key.KeyDecrypt;
+import ro.ghionoiu.kmsjwt.key.KeyOperationException;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
@@ -27,7 +28,7 @@ public class JWTDecoder {
 
     }
 
-    private static final class DecryptSigningKeyUsingKID  extends SigningKeyResolverAdapter {
+    private static final class DecryptSigningKeyUsingKID extends SigningKeyResolverAdapter {
         private KeyDecrypt keyDecrypt;
 
         DecryptSigningKeyUsingKID(KeyDecrypt keyDecrypt) {
@@ -36,12 +37,18 @@ public class JWTDecoder {
 
         @Override
         public Key resolveSigningKey(JwsHeader header, Claims claims) {
-            String keyId = header.getKeyId();
-            if (keyId == null) {
+            String keyIdBase64 = header.getKeyId();
+            if (keyIdBase64 == null) {
                 throw new IllegalArgumentException("No key ID has been found in the JWT header");
             }
-            String base64Key = keyDecrypt.decrypt(keyId);
-            byte[] key = DatatypeConverter.parseBase64Binary(base64Key);
+
+            byte[] key;
+            try {
+                key = keyDecrypt.decrypt(DatatypeConverter.parseBase64Binary(keyIdBase64));
+            } catch (KeyOperationException e) {
+                throw new IllegalArgumentException("Key decryption failed");
+            }
+
             return new SecretKeySpec(key, SignatureAlgorithm.HS256.getJcaName());
         }
     }

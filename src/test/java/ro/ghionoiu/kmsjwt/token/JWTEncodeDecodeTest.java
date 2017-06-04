@@ -1,26 +1,26 @@
-package ro.ghionoiu.kmsjwt;
+package ro.ghionoiu.kmsjwt.token;
 
+import io.jsonwebtoken.Claims;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import ro.ghionoiu.kmsjwt.key.DummyKeyObfuscation;
+import ro.ghionoiu.kmsjwt.key.DummyKeyProtection;
 import ro.ghionoiu.kmsjwt.key.KeyDecrypt;
-import ro.ghionoiu.kmsjwt.token.JWTDecoder;
-import ro.ghionoiu.kmsjwt.token.JWTVerificationException;
+import ro.ghionoiu.kmsjwt.key.KeyOperationException;
 
-import javax.xml.bind.DatatypeConverter;
-
+import static net.trajano.commons.testing.UtilityClassTestUtil.assertUtilityClassWellDefined;
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.Matchers.anyString;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.*;
 
 /**
  * NOTE: Use https://jwt.io/ to obtain test tokens
  */
-public class JWTDecoderTest {
-    private static final String SECRET_AS_BASE_64 = DatatypeConverter.printBase64Binary("secret".getBytes());
-    private static final DummyKeyObfuscation DUMMY_KEY_OBFUSCATION = new DummyKeyObfuscation();
+public class JWTEncodeDecodeTest {
+    private static final byte[] SECRET_AS_BYTE_ARRAY = "secret".getBytes();
+    private static final DummyKeyProtection DUMMY_KEY_PROTECTION = new DummyKeyProtection();
 
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
@@ -29,7 +29,23 @@ public class JWTDecoderTest {
 
     @Before
     public void setUp() throws Exception {
-        jwtDecoder = new JWTDecoder(DUMMY_KEY_OBFUSCATION);
+        jwtDecoder = new JWTDecoder(DUMMY_KEY_PROTECTION);
+    }
+
+    @Test
+    public void encode_and_decode_work_together() throws Exception {
+        String jwt = JWTEncoder.builder(DUMMY_KEY_PROTECTION)
+                .claim("usr", "friendly_name")
+                .compact();
+
+        Claims claims = new JWTDecoder(DUMMY_KEY_PROTECTION).decodeAndVerify(jwt);
+
+        assertThat(claims.get("usr"), is("friendly_name"));
+    }
+
+    @Test
+    public void encode_is_exposed_as_utility_class() throws Exception {
+        assertUtilityClassWellDefined(JWTEncoder.class);
     }
 
     @Test
@@ -57,18 +73,31 @@ public class JWTDecoderTest {
     }
 
     @Test
-    public void decode_uses_key_id_to_obtain_key() throws Exception {
-        String validTokenWithKeyIdSecret = "eyJhbGciOiJIUzI1NiIsImtpZCI6InNlY3JldCJ9" +
+    public void decode_rejects_if_key_cannot_be_decoded() throws Exception {
+        String validTokenWithoutKeyId = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImMyVmpjbVYwIn0" +
                 ".eyJ1c3IiOiJmcmllbmRseV9uYW1lIn0" +
-                ".hYIZhTULU3uiufdM9KJ8vCTVIviuKaMnsfPvo7b_QLE";
+                ".yQtAC9LG7qKcJi4AEzE9vOTHnMCu1eRUc3-GSx3bFC0";
         KeyDecrypt keyDecrypt = mock(KeyDecrypt.class);
-        when(keyDecrypt.decrypt(anyString())).thenReturn(SECRET_AS_BASE_64);
+        when(keyDecrypt.decrypt(any())).thenThrow(new KeyOperationException("X"));
+        jwtDecoder = new JWTDecoder(keyDecrypt);
+        expectedException.expect(JWTVerificationException.class);
+        expectedException.expectMessage(containsString("Key decryption failed"));
+        jwtDecoder.decodeAndVerify(validTokenWithoutKeyId);
+    }
+
+    @Test
+    public void decode_uses_key_id_to_obtain_key() throws Exception {
+        String validTokenWithBase64KeyIdSecret = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImMyVmpjbVYwIn0" +
+                ".eyJ1c3IiOiJmcmllbmRseV9uYW1lIn0" +
+                ".yQtAC9LG7qKcJi4AEzE9vOTHnMCu1eRUc3-GSx3bFC0";
+        KeyDecrypt keyDecrypt = mock(KeyDecrypt.class);
+        when(keyDecrypt.decrypt(any())).thenReturn(SECRET_AS_BYTE_ARRAY);
         jwtDecoder = new JWTDecoder(keyDecrypt);
         try {
-            jwtDecoder.decodeAndVerify(validTokenWithKeyIdSecret);
+            jwtDecoder.decodeAndVerify(validTokenWithBase64KeyIdSecret);
         } catch (JWTVerificationException ignored) {}
 
-        verify(keyDecrypt).decrypt("secret");
+        verify(keyDecrypt).decrypt(SECRET_AS_BYTE_ARRAY);
     }
 
     @Test
@@ -78,7 +107,7 @@ public class JWTDecoderTest {
                 ".TVMUgXwR6tO6nRD4GJ6QuC-J8tN2YOgG9ZYBYvhFgqo";
         expectedException.expect(JWTVerificationException.class);
         expectedException.expectMessage(containsString("expired"));
-        jwtDecoder = new JWTDecoder(ciphertext -> SECRET_AS_BASE_64);
+        jwtDecoder = new JWTDecoder(ciphertext -> SECRET_AS_BYTE_ARRAY);
         jwtDecoder.decodeAndVerify(validKeySignedBySecretWithDateInThePast);
     }
 
@@ -89,7 +118,7 @@ public class JWTDecoderTest {
                 ".H3y_Ox7f_ttzfDqOHQn3VeTXgllWRSKcEgZ6n7PSBeY";
         expectedException.expect(JWTVerificationException.class);
         expectedException.expectMessage(containsString("should not be trusted"));
-        jwtDecoder = new JWTDecoder(ciphertext -> "badkey");
+        jwtDecoder = new JWTDecoder(ciphertext -> "badkey".getBytes());
         jwtDecoder.decodeAndVerify(validKeySignedBySecret);
     }
 
@@ -98,7 +127,7 @@ public class JWTDecoderTest {
         String validKeySignedBySecret = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QifQ" +
                 ".eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9" +
                 ".H3y_Ox7f_ttzfDqOHQn3VeTXgllWRSKcEgZ6n7PSBeY";
-        jwtDecoder = new JWTDecoder(ciphertext -> SECRET_AS_BASE_64);
+        jwtDecoder = new JWTDecoder(ciphertext -> SECRET_AS_BYTE_ARRAY);
         jwtDecoder.decodeAndVerify(validKeySignedBySecret);
     }
 

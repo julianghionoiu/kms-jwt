@@ -5,19 +5,23 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.impl.crypto.MacProvider;
 import ro.ghionoiu.kmsjwt.key.KeyEncrypt;
+import ro.ghionoiu.kmsjwt.key.KeyOperationException;
 
 import javax.crypto.SecretKey;
 import javax.xml.bind.DatatypeConverter;
 
-public class JWTEncoder {
+public final class JWTEncoder {
 
-    public static JwtBuilder builder(KeyEncrypt keyEncrypt) {
+    private JWTEncoder() {
+        //Utility class
+    }
+
+    public static JwtBuilder builder(KeyEncrypt keyEncrypt) throws KeyOperationException {
         SecretKey secretKey = MacProvider.generateKey(SignatureAlgorithm.HS256);
-        String base64key = DatatypeConverter.printBase64Binary(secretKey.getEncoded());
-        String encryptedKey = keyEncrypt.encrypt(base64key);
+        byte[] encryptedKey = keyEncrypt.encrypt(secretKey.getEncoded());
 
         return Jwts.builder()
-                .setHeaderParam("kid", encryptedKey)
+                .setHeaderParam("kid", DatatypeConverter.printBase64Binary(encryptedKey))
                 .signWith(SignatureAlgorithm.HS256, secretKey);
     }
 
