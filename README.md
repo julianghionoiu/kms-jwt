@@ -6,9 +6,17 @@
 A Java library to sign and verify JSON Web Tokens (JWT) using Amazon Key Management Service (KMS)
 Inspired by **codahale/kmssig** https://github.com/codahale/kmssig
 
+Token generation:
+* You construct a JWT with your claims
+* The JWT is signed with the **HS256** algorithm using a newly generated symmetric key  
+* The symmetric is encrypted using **KMS** and shared with the client as a JWT Header parameter (`kid`)
 
+Token validation:
+* The header file is read and the encrypted key is extracted from the `kid` parameter
+* A call is made to **KMS** to decrypt the encrypted key
+* The decrypted key is then used to validate the JWT signature
 
-More info about JWT: https://jwt.io/
+More info about JWT: https://jwt.io/  
 More info about KMS: https://aws.amazon.com/documentation/kms/
 
 ## To use as a library
