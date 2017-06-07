@@ -10,6 +10,10 @@ import ro.ghionoiu.kmsjwt.key.KeyOperationException;
 import ro.ghionoiu.kmsjwt.token.JWTEncoder;
 import ro.ghionoiu.kmsjwt.token.JWTVerificationException;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+
 @Slf4j
 public class GenerateTokenApp {
     @Parameter(names = {"-r", "--region"}, description = "The region where the bucket lives", required = true)
@@ -24,6 +28,9 @@ public class GenerateTokenApp {
     @Parameter(names = {"-j", "--journey"}, description = "The journey associated to this user", required = true)
     private String journey;
 
+    @Parameter(names = {"-x", "--expire-in"}, description = "The expiry period in days. Default 2 days")
+    private int expiresInDays = 2;
+
 
     public static void main(String[] args) throws JWTVerificationException, KeyOperationException {
         GenerateTokenApp main = new GenerateTokenApp();
@@ -35,17 +42,22 @@ public class GenerateTokenApp {
     }
 
     private String generateJWT() throws KeyOperationException {
-        log.info("Generating JWT for user \"{}\" with journey \"{}\"", username, journey);
+        log.info("Generating JWT for user \"{}\" with journey \"{}\", valid for {} days", username, journey, expiresInDays);
 
         AWSKMS kmsClient = AWSKMSClientBuilder.standard()
                 .withRegion(region)
                 .build();
 
         KMSEncrypt kmsEncrypt = new KMSEncrypt(kmsClient, keyARN);
-
+        Date expiryDate = expirationDate(expiresInDays);
         return JWTEncoder.builder(kmsEncrypt)
+                .setExpiration(expiryDate)
                 .claim("usr", username)
                 .claim("jrn", journey)
                 .compact();
+    }
+
+    private static Date expirationDate(int expiresInDays) {
+        return new Date(Instant.now().plus(expiresInDays, ChronoUnit.DAYS).toEpochMilli());
     }
 }
